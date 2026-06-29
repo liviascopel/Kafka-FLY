@@ -1,12 +1,14 @@
 package br.ufes.soe.dataTranferObject;
 
 public class EnderecoRequest {
+    private String estado;
     private String cidade;
     private String bairro;
     private String rua;
     private int numero;
 
-    public EnderecoRequest(String cidade, String bairro, String rua, int numero){
+    public EnderecoRequest(String estado, String cidade, String bairro, String rua, int numero){
+        setEstado(estado);
         setCidade(cidade);
         setBairro(bairro);
         setRua(rua);
@@ -45,6 +47,14 @@ public class EnderecoRequest {
 
     public void setCidade(String cidade) {
         this.cidade = cidade;
+    }
+
+    public String getEstado() {
+        return estado;
+    }
+
+    public void setEstado(String estado) {
+        this.estado = estado;
     }
 
 }
