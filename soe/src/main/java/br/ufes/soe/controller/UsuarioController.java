@@ -29,10 +29,11 @@ public class UsuarioController {
      *  "email": "thais@gmail.com",
      *  "cpf": "123456789-10",
      *  "endereco": {
+     *      "estado": "Espirito Santo",
      *      "cidade": "Vitória",
-     *      "bairro": "Centro",
-     *      "rua": "Rua A",
-     *      "numero": 10
+     *      "bairro": "Jardim da Penha",
+     *      "rua": "Rua Jahira Santos Rodrigues",
+     *      "numero": 114
      *  }
      * }
      * 
