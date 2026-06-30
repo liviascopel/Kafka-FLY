@@ -3,34 +3,36 @@ import { RouterLink, RouterView } from 'vue-router'
 </script>
 
 <template>
-  <header>
-    <div>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <!-- <header> -->
+    <div class="d-flex flex-column vh-100 overflow-hidden">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom px-3">
             <div class="container-fluid">
-                <router-link class="navbar-brand" to="/">Sistema de Rastreamento</router-link>
-                <div class="navbar-nav">
+                <!-- <router-link class="navbar-brand" to="/">Sistema de Rastreamento</router-link> -->
+                <span style="font-size: 24px;" class="navbar-brand fw-bold col justify-content-start">Sistema de Rastreamento</span>
+                <div class="navbar-nav col justify-content-evenly px-5">
                     <router-link class="nav-link" to="/">Mapa</router-link>
                     <router-link class="nav-link" to="/cliente">Visão Cliente</router-link>
                     <router-link class="nav-link" to="/gerente">Visão Gerente</router-link>
                 </div>
+                <div class="col"></div>
             </div>
         </nav>
 
-        <main class="container mt-4">
+        <main class="container flex-grow-1 mt-4 overflow-auto">
             <!-- As props sao repassadas para qualquer tela que estiver ativa no momento -->
             <!-- <router-view 
                 :dadosVoo="estadoVoo" 
                 :alertaAproximacao="alertaAtivo">
             </router-view> -->
+            <RouterView />
         </main>
+        
     </div>
-  </header>
-
-  <RouterView />
+  <!-- </header> -->
 </template>
 
 <style scoped>
-header {
+/* header {
   line-height: 1.5;
   max-height: 100vh;
 }
@@ -90,5 +92,5 @@ nav a:first-of-type {
     padding: 1rem 0;
     margin-top: 1rem;
   }
-}
+} */
 </style>

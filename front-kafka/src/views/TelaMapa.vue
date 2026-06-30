@@ -110,7 +110,7 @@ export default {
 </script>
 
 <template>
-    <div class="container-fluid mt-3">
+    <div class="container mt-3">
         <!-- Usando para testar o caminho e a rotacao -->
         <div class="row mb-3 align-items-end">
             <div class="col-md-4">
@@ -127,14 +127,15 @@ export default {
         </div>
         <div ref="containerDoMapa" class="estilo-mapa"></div>
     </div>
+    
 </template>
 
 <style scoped>
 .estilo-mapa {
-    height: 100vh;
-    width: 200%;
-    /* height: 600px;
-    width: 100%; */
+    /* height: 50vh;
+    width: 200%; */
+    height: 600px;
+    width: 100%;
     z-index: 1;
     border-radius: 8px; 
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
