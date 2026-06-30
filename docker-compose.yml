@@ -1,0 +1,19 @@
+services:
+  frontend:
+    build:
+      context: ./front-kafka
+      dockerfile: Dockerfile
+    container_name: painel_voo_front
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./front-kafka:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    networks:
+      - rede_sistema
+
+networks:
+  rede_sistema:
+    driver: bridge
