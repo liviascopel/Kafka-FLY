@@ -1,16 +1,16 @@
-package br.ufes.soe.service.kafka;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
-import br.ufes.soe.domain.flight.Flight;
-
-import org.apache.kafka.common.serialization.Deserializer;
+package br.ufes.soe.service.weather;
 
 import java.util.Map;
 
-public class FlightDeserializer implements Deserializer<Flight> {
+import org.apache.kafka.common.serialization.Serializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import br.ufes.soe.domain.weather.AirportWeather;
+
+
+
+public class AirportWeatherSerializer implements Serializer<AirportWeather> {
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Override
@@ -18,14 +18,14 @@ public class FlightDeserializer implements Deserializer<Flight> {
     }
 
     @Override
-    public Flight deserialize(String topico, byte[] dados) {
+    public byte[] serialize(String topico, AirportWeather dados) {
         try {
             if (dados == null) {
                 return null;
             }
-            return objectMapper.readValue(dados, Flight.class);
+            return objectMapper.writeValueAsBytes(dados);
         } catch (Exception e) {
-            throw new RuntimeException("Erro ao desserializar", e);
+            throw new RuntimeException("Erro ao serializar voo", e);
         }
     }
 

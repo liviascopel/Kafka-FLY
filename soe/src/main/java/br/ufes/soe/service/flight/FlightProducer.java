@@ -1,4 +1,4 @@
-package br.ufes.soe.service.kafka;
+package br.ufes.soe.service.flight;
 
 import java.util.Properties;
 
