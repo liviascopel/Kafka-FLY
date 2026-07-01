@@ -1,6 +1,23 @@
 version: "3.8"
 
 services:
+  # --- FRONTEND ---
+  frontend:
+    build:
+      context: ./front-kafka
+      dockerfile: Dockerfile
+    container_name: painel_voo_front
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./front-kafka:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    networks:
+      - kafka-net
+
+  # --- INFRAESTRUTURA KAFKA ---
   kafka1:
     image: confluentinc/cp-kafka:7.6.0
     container_name: kafka1
@@ -70,13 +87,14 @@ services:
     networks:
       - kafka-net
 
+  # --- INTERFACE VISUAL DO KAFKA ---
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
     ports:
       - "8080:8080"
     environment:
-      KAFKA_CLUSTERS_0_NAME: local-kraf
+      KAFKA_CLUSTERS_0_NAME: local-kraft
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29092,kafka3:29092
     depends_on:
       - kafka1
