@@ -1,4 +1,4 @@
-package br.ufes.soe.domain;
+package br.ufes.soe.domain.flight;
 
 public record AircraftData(
     String registration,
