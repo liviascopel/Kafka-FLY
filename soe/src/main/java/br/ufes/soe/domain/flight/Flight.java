@@ -1,4 +1,4 @@
-package br.ufes.soe.domain;
+package br.ufes.soe.domain.flight;
 
 import java.io.Serializable;
 
