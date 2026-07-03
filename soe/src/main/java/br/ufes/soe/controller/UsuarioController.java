@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.ufes.soe.dataTranferObject.CriaUsuarioRequest;
+import br.ufes.soe.dto.CriaUsuarioRequest;
 import br.ufes.soe.service.UsuarioService;
 
 @RestController

@@ -4,10 +4,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import br.ufes.soe.dataTranferObject.CriaUsuarioRequest;
 import br.ufes.soe.domain.Coordenadas;
 import br.ufes.soe.domain.Endereco;
 import br.ufes.soe.domain.Usuario;
+import br.ufes.soe.dto.CriaUsuarioRequest;
 import br.ufes.soe.repository.UsuarioRepository;
 
 @Service

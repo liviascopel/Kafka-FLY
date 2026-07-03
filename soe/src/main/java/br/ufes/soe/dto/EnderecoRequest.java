@@ -1,4 +1,4 @@
-package br.ufes.soe.dataTranferObject;
+package br.ufes.soe.dto;
 
 public class EnderecoRequest {
     private String estado;
