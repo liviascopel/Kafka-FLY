@@ -32,11 +32,15 @@ import br.ufes.soe.domain.weather.AirportWeather;
 
 public class FlightProducer {
     private static final String BOOTSTRAP_SERVERS = "localhost:9092,localhost:9094,localhost:9096";
-    private static final String FLIGHT_TOPIC = "complete-flights"; 
+    private static final String COMPLETE_FLIGHT_TOPIC = "complete-flights";
+    private static final String AVIATIONSTACK_FLIGHT_TOPIC = "aviationstack-flights";
+    private static final String METEO_RAW_TOPIC = "meteo-raw";
+    private static final String AIRLINE_RANKING_TOPIC = "airline-ranking-output";
+
     private static final int TOPIC_PARTITIONS = 3;
     private static final short TOPIC_REPLICATION_FACTOR = 3;
     
-    private static final String AVIATIONSTACK_API_KEY = "4350cb53c2fd888a11e776203109b540"; 
+    private static final String AVIATIONSTACK_API_KEY = "1e78c3dd323626f17db0fb214aa5b7a4"; 
     private static final String AVIATIONSTACK_FLIGHTS_URL = "http://api.aviationstack.com/v1/flights";
     private static final String AVIATIONSTACK_AIRPORTS_URL = "http://api.aviationstack.com/v1/airports";
     
@@ -65,7 +69,10 @@ public class FlightProducer {
         Map<String, AirportCoords> airportCoordinatesCache = fetchAirportCoordinates(httpClient, jsonMapper);
 
         try {
-            ensureTopic(kafkaProperties, FLIGHT_TOPIC);
+            ensureTopic(kafkaProperties, COMPLETE_FLIGHT_TOPIC);
+            ensureTopic(kafkaProperties, AVIATIONSTACK_FLIGHT_TOPIC);
+            ensureTopic(weatherProps, METEO_RAW_TOPIC);
+            ensureTopic(kafkaProperties, AIRLINE_RANKING_TOPIC);
 
             while (true) {
                 System.out.println("log: buscando dados de voos");
@@ -127,8 +134,8 @@ public class FlightProducer {
                                             activeAirportsInThisRound.add(completeFlight.arrival().iata().toUpperCase().trim());
                                         }
                                         
-                                        // envia os Flights para o FLIGHT_TOPIC
-                                        ProducerRecord<String, Flight> kafkaRecord = new ProducerRecord<>(FLIGHT_TOPIC, flightIcaoKey, completeFlight);
+                                        // envia os Flights para o COMPLETE_FLIGHT_TOPIC
+                                        ProducerRecord<String, Flight> kafkaRecord = new ProducerRecord<>(COMPLETE_FLIGHT_TOPIC, flightIcaoKey, completeFlight);
                                         flightKafkaProducer.send(kafkaRecord, (metadata, exception) -> {
                                             if (exception == null) {
                                                 System.out.println("log: enviado com sucesso -> ICAO: " + flightIcaoKey 
@@ -138,6 +145,9 @@ public class FlightProducer {
                                                 System.err.println("erro: erro ao publicar voo " + flightIcaoKey + ": " + exception.getMessage());
                                             }
                                         });
+
+                                        ProducerRecord<String, Flight> rankingRecord = new ProducerRecord<>(AVIATIONSTACK_FLIGHT_TOPIC, flightIcaoKey, completeFlight);
+                                        flightKafkaProducer.send(rankingRecord);
                                     }
                                 } catch (Exception e) {
                                     System.err.println("erro: erro ao processar voo: " + e.getMessage());
