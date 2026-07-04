@@ -6,6 +6,7 @@ import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 import br.ufes.soe.domain.flight.Flight;
+import br.ufes.soe.domain.ranking.AirlineMetrics;
 import br.ufes.soe.domain.weather.AirportWeather;
 import br.ufes.soe.domain.weather.WeatherAlert;
 
@@ -28,6 +29,13 @@ public class JsonSerdes {
     public static Serde<WeatherAlert> weatherAlert() {
         JacksonJsonSerializer<WeatherAlert> serializer = new JacksonJsonSerializer<>();
         JacksonJsonDeserializer<WeatherAlert> deserializer = new JacksonJsonDeserializer<>(WeatherAlert.class);
+        deserializer.setUseTypeHeaders(false);
+        return Serdes.serdeFrom(serializer, deserializer);
+    }
+
+    public static Serde<AirlineMetrics> airlineMetrics() {
+        JacksonJsonSerializer<AirlineMetrics> serializer = new JacksonJsonSerializer<>();
+        JacksonJsonDeserializer<AirlineMetrics> deserializer = new JacksonJsonDeserializer<>(AirlineMetrics.class);
         deserializer.setUseTypeHeaders(false);
         return Serdes.serdeFrom(serializer, deserializer);
     }
