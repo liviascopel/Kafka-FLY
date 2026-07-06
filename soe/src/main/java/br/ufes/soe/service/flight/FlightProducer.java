@@ -1,10 +1,10 @@
 package br.ufes.soe.service.flight;
 
-import java.util.Properties;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.kafka.clients.admin.AdminClient;
@@ -20,14 +20,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-
 import br.ufes.soe.domain.flight.AirportCoords;
 import br.ufes.soe.domain.flight.Flight;
 import br.ufes.soe.domain.flight.OpenSkyState;
 import br.ufes.soe.domain.weather.AirportWeather;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 
 public class FlightProducer {
@@ -40,7 +39,7 @@ public class FlightProducer {
     private static final int TOPIC_PARTITIONS = 3;
     private static final short TOPIC_REPLICATION_FACTOR = 3;
     
-    private static final String AVIATIONSTACK_API_KEY = "1e78c3dd323626f17db0fb214aa5b7a4"; 
+    private static final String AVIATIONSTACK_API_KEY = "b8d96df1de0307029731ab8e937e7232"; 
     private static final String AVIATIONSTACK_FLIGHTS_URL = "http://api.aviationstack.com/v1/flights";
     private static final String AVIATIONSTACK_AIRPORTS_URL = "http://api.aviationstack.com/v1/airports";
     
@@ -177,6 +176,9 @@ public class FlightProducer {
 
                 }  catch (Exception e) {
                     System.err.println("erro: erro na rodada de sincronização: " + e.getMessage());
+                    long executionTime = System.currentTimeMillis() - roundStartTime;
+                    System.out.println("log: sincronização concluída em " + executionTime + "ms. aguardando próxima rodada...");
+                    Thread.sleep(POLLING_INTERVAL_MS);
                 }
             }
             
@@ -260,6 +262,16 @@ public class FlightProducer {
     // pega os voos da opensky
     private static Map<String, OpenSkyState> fetchOpenSkyState(OkHttpClient client, ObjectMapper mapper) throws IOException {
         Request request = new Request.Builder().url(OPENSKY_STATES_URL).build();
+
+        // Na teoria aumenta para 4000 o limites de requisicoes;
+        // String usuarioOpenSky = "yurimutz-api-client";
+        // String senhaOpenSky = "OzIaNGMkRhD1alvCWTnAsTHDXgrfy4iT";
+        //String credencialAutenticacao = okhttp3.Credentials.basic(usuarioOpenSky, senhaOpenSky);
+        // Request request = new Request.Builder()
+        //         .url(OPENSKY_STATES_URL)
+        //         .addHeader("Authorization", credencialAutenticacao)
+        //         .addHeader("User-Agent", "UFES-Monitoramento/1.0 (Projeto de Pesquisa)")
+        //         .build();
 
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) throw new IOException("Erro ao consultar OpenSky: " + response);
