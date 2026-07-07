@@ -1,34 +1,121 @@
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
+import { startSSE, stopSSE, startSimulation, stopSimulation, getSimulationStatus } from '@/services/sse'
+
+const isConnected = ref(false)
+const isSimulating = ref(false)
+const serverUrl = ref(import.meta.env.VITE_SSE_URL || 'http://localhost:8080/events')
+
+const handleStatusChange = (event) => {
+  isConnected.value = event.detail.connected
+  isSimulating.value = event.detail.simulating
+}
+
+const toggleSimulation = () => {
+  if (isSimulating.value) {
+    stopSimulation()
+    // Reconnect to real SSE
+    startSSE(serverUrl.value)
+  } else {
+    startSimulation()
+  }
+}
+
+const reconnectSSE = () => {
+  startSSE(serverUrl.value)
+}
+
+onMounted(() => {
+  // Listen to connection status events
+  window.addEventListener('sse-status', handleStatusChange)
+  
+  // Start standard SSE connection by default
+  startSSE(serverUrl.value)
+  
+  // As a fallback helper, if connection fails, user can enable simulation.
+  // We can also auto-start simulation for convenience if they want, but let's default to real SSE connection.
+})
+
+onUnmounted(() => {
+  window.removeEventListener('sse-status', handleStatusChange)
+  stopSSE()
+  stopSimulation()
+})
 </script>
 
 <template>
-  <!-- <header> -->
-    <div class="d-flex flex-column vh-100 overflow-hidden">
-        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom px-3">
-            <div class="container-fluid">
-                <!-- <router-link class="navbar-brand" to="/">Sistema de Rastreamento</router-link> -->
-                <span style="font-size: 24px;" class="navbar-brand fw-bold col justify-content-start">Sistema de Rastreamento</span>
-                <div class="navbar-nav col justify-content-evenly px-5">
-                    <router-link class="nav-link" to="/">Mapa</router-link>
-                    <router-link class="nav-link" to="/cliente">Visão Cliente</router-link>
-                    <router-link class="nav-link" to="/gerente">Visão Gerente</router-link>
-                </div>
-                <div class="col"></div>
-            </div>
-        </nav>
-
-        <main class="container flex-grow-1 mt-4 overflow-auto">
-            <!-- As props sao repassadas para qualquer tela que estiver ativa no momento -->
-            <!-- <router-view 
-                :dadosVoo="estadoVoo" 
-                :alertaAproximacao="alertaAtivo">
-            </router-view> -->
-            <RouterView />
-        </main>
+  <div class="d-flex flex-column vh-100 overflow-hidden app-container">
+    <nav class="navbar navbar-expand-lg border-bottom px-4 py-3 custom-navbar shadow-sm">
+      <div class="container-fluid d-flex align-items-center justify-content-between">
         
-    </div>
-  <!-- </header> -->
+        <!-- Logo / Title -->
+        <div class="d-flex align-items-center">
+          <span class="logo-icon me-2">✈️</span>
+          <span class="navbar-brand fw-bold mb-0 text-gradient">Kafka-FLY</span>
+          <span class="ms-3 text-muted d-none d-md-inline" style="font-size: 0.85rem; border-left: 1px solid #dee2e6; padding-left: 15px;">
+            Rastreamento de Voos em Tempo Real
+          </span>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="navbar-nav d-flex flex-row gap-2 px-2 my-2 my-lg-0 justify-content-center">
+          <router-link class="nav-link px-3 py-2 rounded-pill transition-all" to="/" active-class="active-nav">
+            🗺️ Mapa
+          </router-link>
+          <router-link class="nav-link px-3 py-2 rounded-pill transition-all" to="/cliente" active-class="active-nav">
+            👤 Passageiro
+          </router-link>
+          <router-link class="nav-link px-3 py-2 rounded-pill transition-all" to="/gerente" active-class="active-nav">
+            💼 Gerente
+          </router-link>
+        </div>
+
+        <!-- SSE connection and Simulator Dashboard -->
+        <div class="d-flex align-items-center gap-3">
+          <!-- Connection Status Indicator -->
+          <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-pill bg-light border">
+            <span 
+              class="status-dot" 
+              :class="{ 
+                'bg-success animate-pulse': isConnected && !isSimulating, 
+                'bg-warning animate-pulse': isSimulating, 
+                'bg-danger': !isConnected && !isSimulating 
+              }"
+            ></span>
+            <span class="fw-semibold text-dark" style="font-size: 0.85rem;">
+              {{ isSimulating ? 'Simulador Ativo' : isConnected ? 'Servidor Conectado' : 'Servidor Offline' }}
+            </span>
+          </div>
+
+          <!-- Quick Controls -->
+          <button 
+            @click="toggleSimulation" 
+            class="btn btn-sm rounded-pill px-3 transition-all"
+            :class="isSimulating ? 'btn-outline-danger' : 'btn-outline-warning'"
+            style="font-size: 0.8rem;"
+          >
+            {{ isSimulating ? 'Parar Simulação' : 'Simular Dados' }}
+          </button>
+          
+          <button 
+            v-if="!isConnected && !isSimulating"
+            @click="reconnectSSE" 
+            class="btn btn-sm btn-primary rounded-pill px-3 transition-all"
+            style="font-size: 0.8rem;"
+          >
+            Reconectar SSE
+          </button>
+        </div>
+
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow-1 overflow-auto bg-main-layout">
+      <RouterView />
+    </main>
+  </div>
 </template>
 
 <style scoped>
