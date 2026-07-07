@@ -147,6 +147,8 @@ public class FlightProducer {
 
                                         ProducerRecord<String, Flight> rankingRecord = new ProducerRecord<>(AVIATIONSTACK_FLIGHT_TOPIC, flightIcaoKey, completeFlight);
                                         flightKafkaProducer.send(rankingRecord);
+                                    } else {
+                                        System.out.println("Nao criei os eventos");
                                     }
                                 } catch (Exception e) {
                                     System.err.println("erro: erro ao processar voo: " + e.getMessage());

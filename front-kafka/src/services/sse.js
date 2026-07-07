@@ -1,6 +1,7 @@
 // Service to manage the Server-Sent Events (SSE) connection and mock simulations
+import { reactive } from 'vue';
 
-const defaultUrl = import.meta.env.VITE_SSE_URL || 'http://localhost:8080/events';
+const defaultUrl = import.meta.env.VITE_SSE_URL || 'http://localhost:8081/api/monitoramento/stream';
 
 let eventSource = null;
 let simulationInterval = null;
@@ -8,6 +9,14 @@ let isSimulating = false;
 
 let rankingWS = null;
 let alertsWS = null;
+
+// Global Singleton Cache to preserve state across route transitions, wrapped in Vue reactive proxy
+export const flightCache = reactive({
+    voosAtivos: {},
+    meteoPorAeroporto: {},
+    rankingAirlines: [],
+    logsEventos: []
+});
 
 // Airport coordinates dictionary for calculating distance and display names
 export const AIRPORT_COORDS = {
@@ -134,54 +143,13 @@ export const normalizeMeteoData = (data) => {
     };
 };
 
-// Handles Websocket bridge connection with backend Spring Boot on port 8081
+// Handles Websocket bridge connection - Disabled as frontend is configured to communicate via StreamingController SSE only
 const startWebSockets = () => {
-    try {
-        rankingWS = new WebSocket('ws://localhost:8081/ws/airline-ranking');
-        rankingWS.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                console.log('Received WebSocket message [airline-ranking]:', data);
-                window.dispatchEvent(new CustomEvent('airline-ranking-output', { detail: data }));
-            } catch (err) {
-                console.error('Error parsing ranking WebSocket data:', err);
-            }
-        };
-        rankingWS.onerror = (err) => {
-            console.warn('Ranking WebSocket connection failed (Spring Boot offline?):', err);
-        };
-    } catch (e) {
-        console.warn('Could not initialize ranking WebSocket:', e);
-    }
-
-    try {
-        alertsWS = new WebSocket('ws://localhost:8081/ws/alertas-climaticos');
-        alertsWS.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                console.log('Received WebSocket message [climate-alert]:', data);
-                window.dispatchEvent(new CustomEvent('climate-alert', { detail: data }));
-            } catch (err) {
-                console.error('Error parsing climate alert WebSocket data:', err);
-            }
-        };
-        alertsWS.onerror = (err) => {
-            console.warn('Climate alert WebSocket connection failed:', err);
-        };
-    } catch (e) {
-        console.warn('Could not initialize climate alert WebSocket:', e);
-    }
+    // WebSockets disabled to listen solely to StreamingController SSE events (those 3 topics)
 };
 
 const stopWebSockets = () => {
-    if (rankingWS) {
-        rankingWS.close();
-        rankingWS = null;
-    }
-    if (alertsWS) {
-        alertsWS.close();
-        alertsWS = null;
-    }
+    // No-op as WebSockets are disabled
 };
 
 /**
@@ -194,7 +162,6 @@ export const startSSE = (url = defaultUrl) => {
     }
 
     stopSimulation();
-    startWebSockets();
 
     console.log(`Connecting to SSE at: ${url}`);
     eventSource = new EventSource(url);
@@ -203,42 +170,131 @@ export const startSSE = (url = defaultUrl) => {
     eventSource.addEventListener('airline-ranking-output', (event) => {
         try {
             const data = JSON.parse(event.data);
-            window.dispatchEvent(new CustomEvent('airline-ranking-output', { detail: data }));
+            
+            // Normalize and update global cache for ranking
+            let updatedList = [...flightCache.rankingAirlines];
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    const name = item.airlineName || item.airline;
+                    const index = updatedList.findIndex(a => a.airlineName === name);
+                    const normalized = {
+                        airlineName: name,
+                        score: parseFloat(item.score || 0),
+                        totalFlights: item.totalFlights || item.flightsCount || 0,
+                        delayedFlights: item.delayedFlights || 0,
+                        cancelledFlights: item.cancelledFlights || 0
+                    };
+                    if (index !== -1) updatedList[index] = normalized;
+                    else updatedList.push(normalized);
+                });
+            } else {
+                const name = data.airlineName || data.airline;
+                if (name) {
+                    const index = updatedList.findIndex(a => a.airlineName === name);
+                    const normalized = {
+                        airlineName: name,
+                        score: parseFloat(data.score || 0),
+                        totalFlights: data.totalFlights || data.flightsCount || 0,
+                        delayedFlights: data.delayedFlights || 0,
+                        cancelledFlights: data.cancelledFlights || 0
+                    };
+                    if (index !== -1) updatedList[index] = normalized;
+                    else updatedList.push(normalized);
+                }
+            }
+            updatedList.sort((a, b) => b.score - a.score);
+            const ranked = updatedList.map((item, index) => ({ ...item, rank: index + 1 }));
+            flightCache.rankingAirlines.splice(0, flightCache.rankingAirlines.length, ...ranked);
+
+            // Log event
+            const timestamp = new Date().toLocaleTimeString();
+            flightCache.logsEventos.unshift({
+                id: Date.now() + Math.random(),
+                timestamp,
+                topico: 'airline-ranking-output',
+                payload: JSON.stringify(data)
+            });
+            if (flightCache.logsEventos.length > 15) flightCache.logsEventos.pop();
+
+            window.dispatchEvent(new CustomEvent('airline-ranking-output', { detail: flightCache.rankingAirlines }));
         } catch (err) {
             console.error('Error parsing airline-ranking-output:', err);
         }
     });
 
-    // 2. Event: aviationstack-flights
-    eventSource.addEventListener('aviationstack-flights', (event) => {
-        try {
-            const data = JSON.parse(event.data);
-            const normalized = normalizeFlightData(data);
-            window.dispatchEvent(new CustomEvent('complete-flights', { detail: normalized }));
-        } catch (err) {
-            console.error('Error parsing aviationstack-flights:', err);
-        }
-    });
-
-    // 3. Event: complete-flights
+    // 2. Event: complete-flights
     eventSource.addEventListener('complete-flights', (event) => {
         try {
             const data = JSON.parse(event.data);
             const normalized = normalizeFlightData(data);
+            
+            // Update global cache
+            flightCache.voosAtivos[normalized.voo] = normalized;
+            
+            // Initialize weather if destination not exists in cache
+            const destino = normalized.destinoIata;
+            if (destino && !flightCache.meteoPorAeroporto[destino]) {
+                flightCache.meteoPorAeroporto[destino] = {
+                    iata: destino,
+                    airportName: normalized.destino || 'Aeroporto',
+                    temperatura: '25.0',
+                    condicao: 'Céu Limpo',
+                    ventoVelocidade: '12.0',
+                    ventoDirecao: 'NE',
+                    umidade: 70,
+                    pressao: '1013'
+                };
+            }
+
+            // Log event
+            const timestamp = new Date().toLocaleTimeString();
+            flightCache.logsEventos.unshift({
+                id: Date.now() + Math.random(),
+                timestamp,
+                topico: 'complete-flights',
+                payload: JSON.stringify(normalized)
+            });
+            if (flightCache.logsEventos.length > 15) flightCache.logsEventos.pop();
+
             window.dispatchEvent(new CustomEvent('complete-flights', { detail: normalized }));
         } catch (err) {
             console.error('Error parsing complete-flights:', err);
         }
     });
 
-    // 4. Event: meteo-raw
-    eventSource.addEventListener('meteo-raw', (event) => {
+    // 3. Event: climate-alert
+    eventSource.addEventListener('climate-alert', (event) => {
         try {
             const data = JSON.parse(event.data);
-            const normalized = normalizeMeteoData(data);
-            window.dispatchEvent(new CustomEvent('meteo-raw', { detail: normalized }));
+            
+            // Update global weather cache on severe weather
+            const iata = data.airportIata;
+            if (iata) {
+                flightCache.meteoPorAeroporto[iata] = {
+                    iata: iata,
+                    airportName: data.airportName || 'Aeroporto',
+                    temperatura: '18.0',
+                    condicao: data.condition || 'Condição Severa',
+                    ventoVelocidade: '35.0',
+                    ventoDirecao: 'S',
+                    umidade: 95,
+                    pressao: '998'
+                };
+            }
+
+            // Log event
+            const timestamp = new Date().toLocaleTimeString();
+            flightCache.logsEventos.unshift({
+                id: Date.now() + Math.random(),
+                timestamp,
+                topico: 'climate-alert',
+                payload: JSON.stringify(data)
+            });
+            if (flightCache.logsEventos.length > 15) flightCache.logsEventos.pop();
+
+            window.dispatchEvent(new CustomEvent('climate-alert', { detail: data }));
         } catch (err) {
-            console.error('Error parsing meteo-raw:', err);
+            console.error('Error parsing climate-alert:', err);
         }
     });
 
@@ -264,7 +320,6 @@ export const stopSSE = () => {
         eventSource.close();
         eventSource = null;
     }
-    stopWebSockets();
     window.dispatchEvent(new CustomEvent('sse-status', { detail: { connected: false, simulating: isSimulating } }));
 };
 
@@ -397,33 +452,124 @@ export const startSimulation = () => {
             };
 
             const normalized = normalizeFlightData(rawData);
+            
+            // Update global cache
+            flightCache.voosAtivos[normalized.voo] = normalized;
+            
+            const destino = normalized.destinoIata;
+            if (destino && !flightCache.meteoPorAeroporto[destino]) {
+                flightCache.meteoPorAeroporto[destino] = {
+                    iata: destino,
+                    airportName: normalized.destino || 'Aeroporto',
+                    temperatura: '25.0',
+                    condicao: 'Céu Limpo',
+                    ventoVelocidade: '12.0',
+                    ventoDirecao: 'NE',
+                    umidade: 70,
+                    pressao: '1013'
+                };
+            }
+
+            // Log event
+            const timestamp = new Date().toLocaleTimeString();
+            flightCache.logsEventos.unshift({
+                id: Date.now() + Math.random(),
+                timestamp,
+                topico: 'complete-flights',
+                payload: JSON.stringify(normalized)
+            });
+            if (flightCache.logsEventos.length > 15) flightCache.logsEventos.pop();
+
             window.dispatchEvent(new CustomEvent('complete-flights', { detail: normalized }));
         });
 
         // 2. Dispatch airline-ranking-output event (complying with AirlineMetrics model)
+        const rankings = [
+            { airlineName: 'Azul Linhas Aéreas', totalFlights: 145, delayedFlights: 5, cancelledFlights: 1, score: (95.5 + Math.sin(elapsed * 0.5) * 2) },
+            { airlineName: 'LATAM Airlines', totalFlights: 180, delayedFlights: 15, cancelledFlights: 2, score: (89.2 + Math.cos(elapsed * 0.4) * 3) },
+            { airlineName: 'GOL Linhas Aéreas', totalFlights: 155, delayedFlights: 20, cancelledFlights: 4, score: (82.1 + Math.sin(elapsed * 0.3) * 4) }
+        ];
+        rankings.sort((a, b) => b.score - a.score);
+        const ranked = rankings.map((item, index) => ({ ...item, rank: index + 1 }));
+        flightCache.rankingAirlines.splice(0, flightCache.rankingAirlines.length, ...ranked);
+
+        // Log event
+        const rankTimestamp = new Date().toLocaleTimeString();
+        flightCache.logsEventos.unshift({
+            id: Date.now() + Math.random(),
+            timestamp: rankTimestamp,
+            topico: 'airline-ranking-output',
+            payload: JSON.stringify(flightCache.rankingAirlines)
+        });
+        if (flightCache.logsEventos.length > 15) flightCache.logsEventos.pop();
+
         window.dispatchEvent(new CustomEvent('airline-ranking-output', {
-            detail: [
-                { airlineName: 'Azul Linhas Aéreas', totalFlights: 145, delayedFlights: 5, cancelledFlights: 1, score: (95.5 + Math.sin(elapsed * 0.5) * 2) },
-                { airlineName: 'LATAM Airlines', totalFlights: 180, delayedFlights: 15, cancelledFlights: 2, score: (89.2 + Math.cos(elapsed * 0.4) * 3) },
-                { airlineName: 'GOL Linhas Aéreas', totalFlights: 155, delayedFlights: 20, cancelledFlights: 4, score: (82.1 + Math.sin(elapsed * 0.3) * 4) }
-            ]
+            detail: flightCache.rankingAirlines
         }));
 
-        // 3. Dispatch weather for main airports (GRU & VIX)
-        const airPorts = ['VIX', 'GRU'];
-        airPorts.forEach(iata => {
-            const isVix = iata === 'VIX';
-            const rawMeteo = {
-                iataCode: iata,
-                airportName: isVix ? 'Eurico de Aguiar Salles' : 'Guarulhos',
-                countryName: 'Brasil',
-                temperature: (isVix ? 24.5 : 18.0) + Math.sin(elapsed * 0.2) * 2,
-                windspeed: 10 + Math.cos(elapsed * 0.3) * 5,
-                weatherCode: isVix ? 1 : 3 // Clear vs Clouds
+        // 3. Dispatch simulated climate alerts occasionally (every 3 ticks / 9 seconds)
+        if (elapsed % 3 === 0) {
+            const alertTypes = ["NEBLINA DENSA", "CHUVA FORTE", "TEMPESTADE ELÉTRICA"];
+            const type = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+            const isVix = Math.random() > 0.5;
+            const iata = isVix ? 'VIX' : 'GRU';
+            const airportName = isVix ? 'Eurico de Aguiar Salles (VIX)' : 'Guarulhos (GRU)';
+            
+            // Find a simulated flight with this destination to make it look realistic
+            const flight = simulatedFlights.find(f => f.destinoIata === iata) || simulatedFlights[0];
+            
+            const rawFlightData = {
+                flight_date: new Date().toLocaleDateString(),
+                flight_status: flight.status,
+                departure: { airport: flight.origem, iata: flight.origemIata },
+                arrival: { airport: flight.destino, iata: flight.destinoIata },
+                airline: { name: flight.airline, iata: flight.airlineIata, icao: flight.airlineIcao },
+                flight: { number: flight.number, iata: flight.iata, icao: flight.icao },
+                live: {
+                    latitude: flight.startLat + (flight.targetLat - flight.startLat) * flight.progress,
+                    longitude: flight.startLng + (flight.targetLng - flight.startLng) * flight.progress,
+                    altitude: flight.status === 'landed' ? 0 : flight.altitude,
+                    speed_horizontal: flight.status === 'landed' ? 0 : flight.speed,
+                    direction: flight.direction,
+                    is_ground: flight.status === 'landed'
+                }
             };
-            const normalizedMeteo = normalizeMeteoData(rawMeteo);
-            window.dispatchEvent(new CustomEvent('meteo-raw', { detail: normalizedMeteo }));
-        });
+
+            const alertData = {
+                flightIcao: flight.icao,
+                condition: type,
+                airportIata: iata,
+                airportName: airportName,
+                type: "DESTINO",
+                flightDetails: rawFlightData
+            };
+
+            // Update weather
+            flightCache.meteoPorAeroporto[iata] = {
+                iata: iata,
+                airportName: airportName,
+                temperatura: '18.0',
+                condicao: type,
+                ventoVelocidade: '35.0',
+                ventoDirecao: 'S',
+                umidade: 95,
+                pressao: '998'
+            };
+
+            // Log event
+            const alertTimestamp = new Date().toLocaleTimeString();
+            flightCache.logsEventos.unshift({
+                id: Date.now() + Math.random(),
+                timestamp: alertTimestamp,
+                topico: 'climate-alert',
+                payload: JSON.stringify(alertData)
+            });
+            if (flightCache.logsEventos.length > 15) flightCache.logsEventos.pop();
+
+            window.dispatchEvent(new CustomEvent('climate-alert', {
+                detail: alertData
+            }));
+        }
 
     }, 3000);
 };

@@ -2,6 +2,7 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import iconeAviaoSrc from '@/assets/airplane-air-plane-fly-airport-svgrepo-com.svg';
+import { flightCache } from '@/services/sse';
 
 export default {
     name: 'TelaMapa',
@@ -48,9 +49,24 @@ export default {
         this.$nextTick(() => {
             this.inicializarMapa();
             
+            // Load existing flights from global cache on mount
+            if (flightCache && flightCache.voosAtivos) {
+                Object.values(flightCache.voosAtivos).forEach(flightData => {
+                    this.adicionarOuAtualizarAviaoNoMapa(flightData);
+                });
+            }
+            
             // Register standard JavaScript event listeners for backend SSE events
             window.addEventListener('complete-flights', this.lidarComNovoVoo);
         });
+    },
+    activated() {
+        if (this.mapa) {
+            this.$nextTick(() => {
+                this.mapa.invalidateSize();
+                this.rotacionarTodosAvioes();
+            });
+        }
     },
     methods: {
         inicializarMapa() {
@@ -59,39 +75,39 @@ export default {
             const lngCentro = -43.3826;
             
             this.mapa = L.map(this.$refs.containerDoMapa).setView([latCentro, lngCentro], 7);
-
+ 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors',
                 maxZoom: 19
             }).addTo(this.mapa);
-
+ 
             this.iconeAviao = L.icon({
                 iconUrl: iconeAviaoSrc,
                 iconSize: [32, 32],
                 iconAnchor: [16, 16],
                 popupAnchor: [0, -16]
             });
-
+ 
             this.mapa.on('zoomend moveend', () => {
                 this.rotacionarTodosAvioes();
             });
         },
-
+ 
         calcularAzimute(lat1, lon1, lat2, lon2) {
             const toRad = (valor) => valor * Math.PI / 180;
             const toDeg = (valor) => valor * 180 / Math.PI;
-
+ 
             const phi1 = toRad(lat1);
             const phi2 = toRad(lat2);
             const deltaLambda = toRad(lon2 - lon1);
-
+ 
             const y = Math.sin(deltaLambda) * Math.cos(phi2);
             const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
-
+ 
             const theta = Math.atan2(y, x);
             return (toDeg(theta) + 360) % 360;
         },
-
+ 
         rotacionarTodosAvioes() {
             Object.keys(this.voosAtivos).forEach(key => {
                 const flight = this.voosAtivos[key];
@@ -108,7 +124,7 @@ export default {
                 }
             });
         },
-
+ 
         selecionarVoo(key) {
             this.vooSelecionadoKey = key;
             const flight = this.voosAtivos[key];
@@ -117,45 +133,45 @@ export default {
                 flight.marker.openPopup();
             }
         },
-
+ 
         atualizarPosicao() {
             if (!this.vooSelecionadoKey || this.inputLat === null || this.inputLng === null) return;
             
             const flight = this.voosAtivos[this.vooSelecionadoKey];
             if (!flight) return;
-
+ 
             const oldLat = flight.data.latitude;
             const oldLng = flight.data.longitude;
             const newLat = parseFloat(this.inputLat);
             const newLng = parseFloat(this.inputLng);
-
+ 
             const angulo = this.calcularAzimute(oldLat, oldLng, newLat, newLng);
-
+ 
             // Update flight data copy
             flight.data.latitude = newLat;
             flight.data.longitude = newLng;
             flight.data.direction = angulo;
             flight.angulo = angulo;
-
+ 
             // Add to history and update polyline
             flight.history.push([newLat, newLng]);
             flight.marker.setLatLng([newLat, newLng]);
             if (flight.polyline) {
                 flight.polyline.setLatLngs(flight.history);
             }
-
+ 
             // Update popup content
             this.atualizarPopupContent(this.vooSelecionadoKey);
-
+ 
             this.mapa.panTo([newLat, newLng]);
             this.rotacionarTodosAvioes();
         },
-
+ 
         atualizarPopupContent(key) {
             const flight = this.voosAtivos[key];
             if (!flight) return;
             const d = flight.data;
-
+ 
             const popupContent = `
                 <div style="font-family: sans-serif; min-width: 170px; line-height: 1.4;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
@@ -174,52 +190,56 @@ export default {
                     </table>
                 </div>
             `;
-
+ 
             flight.marker.setPopupContent(popupContent);
         },
-
+ 
         lidarComNovoVoo(event) {
             const data = event.detail;
+            this.adicionarOuAtualizarAviaoNoMapa(data);
+        },
+
+        adicionarOuAtualizarAviaoNoMapa(data) {
             if (!data || !data.voo) return;
-
-            console.log('Mapa processando complete-flights:', data);
-
+ 
+            console.log('Mapa processando voo:', data);
+ 
             const key = data.voo;
             const lat = parseFloat(data.latitude);
             const lng = parseFloat(data.longitude);
-
+ 
             if (isNaN(lat) || isNaN(lng)) return;
-
+ 
             if (this.voosAtivos[key]) {
                 // Update existing flight path and marker
                 const flight = this.voosAtivos[key];
                 const oldLat = flight.data.latitude;
                 const oldLng = flight.data.longitude;
-
+ 
                 // Update data object
                 flight.data = data;
-
+ 
                 // Calculate azimuth rotation angle if speed is horizontal or moving
                 let angulo = data.direction;
                 if (angulo === undefined || angulo === 0) {
                     angulo = this.calcularAzimute(oldLat, oldLng, lat, lng);
                 }
                 flight.angulo = angulo;
-
+ 
                 // Update marker position
                 flight.marker.setLatLng([lat, lng]);
-
+ 
                 // Append coordinates to history
                 flight.history.push([lat, lng]);
-
+ 
                 // Update polyline route
                 if (flight.polyline) {
                     flight.polyline.setLatLngs(flight.history);
                 }
-
+ 
                 // Update popup content
                 this.atualizarPopupContent(key);
-
+ 
                 if (this.vooSelecionadoKey === key) {
                     this.inputLat = lat;
                     this.inputLng = lng;
@@ -229,26 +249,26 @@ export default {
                 const marker = L.marker([lat, lng], {
                     icon: this.iconeAviao
                 }).addTo(this.mapa);
-
+ 
                 // Add click listener to select flight
                 marker.on('click', () => {
                     this.vooSelecionadoKey = key;
                 });
-
+ 
                 // Set up flight route polyline
                 const history = [[lat, lng]];
                 const color = this.vooSelecionadoKey === key ? '#0d6efd' : '#6c757d';
                 const dashArray = this.vooSelecionadoKey === key ? null : '5, 8';
                 const opacity = this.vooSelecionadoKey === key ? 0.9 : 0.4;
                 const weight = this.vooSelecionadoKey === key ? 5 : 3;
-
+ 
                 const polyline = L.polyline(history, { 
                     color, 
                     weight, 
                     opacity, 
                     dashArray 
                 }).addTo(this.mapa);
-
+ 
                 // Store in active registry
                 this.voosAtivos[key] = {
                     data,
@@ -257,16 +277,16 @@ export default {
                     history,
                     angulo: data.direction || 0
                 };
-
+ 
                 // Create and set popup
                 this.atualizarPopupContent(key);
-
+ 
                 // Auto-select first flight
                 if (!this.vooSelecionadoKey) {
                     this.vooSelecionadoKey = key;
                 }
             }
-
+ 
             this.rotacionarTodosAvioes();
         }
     },

@@ -5,7 +5,7 @@ import { startSSE, stopSSE, startSimulation, stopSimulation, getSimulationStatus
 
 const isConnected = ref(false)
 const isSimulating = ref(false)
-const serverUrl = ref(import.meta.env.VITE_SSE_URL || 'http://localhost:8080/events')
+const serverUrl = ref(import.meta.env.VITE_SSE_URL || 'http://localhost:8081/api/monitoramento/stream')
 
 const handleStatusChange = (event) => {
   isConnected.value = event.detail.connected
@@ -113,7 +113,11 @@ onUnmounted(() => {
 
     <!-- Main Content Area -->
     <main class="flex-grow-1 overflow-auto bg-main-layout">
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <keep-alive>
+          <component :is="Component" />
+        </keep-alive>
+      </RouterView>
     </main>
   </div>
 </template>

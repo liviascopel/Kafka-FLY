@@ -1,12 +1,14 @@
 <script>
+import { flightCache } from '@/services/sse';
+
 export default {
     name: 'TelaCliente',
     data() {
         return {
             numeroVooBuscado: '',
             vooSelecionadoKey: null,
-            voosAtivos: {}, // Key: flight identifier (e.g. AD-4050), Value: normalized flight data
-            meteoPorAeroporto: {}, // Key: IATA code (e.g. VIX), Value: normalized meteo data
+            voosAtivos: flightCache.voosAtivos, // Reference to global singleton cache
+            meteoPorAeroporto: flightCache.meteoPorAeroporto, // Reference to global singleton cache
             alertaAproximacao: false,
             origemPadrao: 'São Paulo (GRU)',
             destinoPadrao: 'Vitória (VIX)'
@@ -39,7 +41,15 @@ export default {
     mounted() {
         // Register standard JavaScript event listeners for backend SSE events
         window.addEventListener('complete-flights', this.lidarComDadosVoo);
-        window.addEventListener('meteo-raw', this.lidarComDadosMeteo);
+        window.addEventListener('climate-alert', this.lidarComAlertaClimatico);
+
+        // Auto-select first flight if none is selected and cached flights exist
+        if (!this.vooSelecionadoKey && Object.keys(this.voosAtivos).length > 0) {
+            const firstKey = Object.keys(this.voosAtivos)[0];
+            this.vooSelecionadoKey = firstKey;
+            this.numeroVooBuscado = firstKey;
+            this.atualizarAlerta();
+        }
     },
     methods: {
         buscarVoo() {
@@ -92,6 +102,21 @@ export default {
             // Add or update dictionary of flights
             this.voosAtivos[data.voo] = data;
             
+            // Initialize weather for the destination if not exists
+            const destino = data.destinoIata;
+            if (destino && !this.meteoPorAeroporto[destino]) {
+                this.meteoPorAeroporto[destino] = {
+                    iata: destino,
+                    airportName: data.destino || 'Aeroporto',
+                    temperatura: '25.0',
+                    condicao: 'Céu Limpo',
+                    ventoVelocidade: '12.0',
+                    ventoDirecao: 'NE',
+                    umidade: 70,
+                    pressao: '1013'
+                };
+            }
+            
             // Auto-select first flight if none is selected
             if (!this.vooSelecionadoKey) {
                 this.vooSelecionadoKey = data.voo;
@@ -102,18 +127,29 @@ export default {
                 this.atualizarAlerta();
             }
         },
-        lidarComDadosMeteo(event) {
+        lidarComAlertaClimatico(event) {
             const data = event.detail;
-            if (!data || !data.iata) return;
+            if (!data || !data.airportIata) return;
 
-            console.log('Cliente processando meteo-raw:', data);
-            this.meteoPorAeroporto[data.iata] = data;
+            console.log('Cliente processando climate-alert:', data);
+            
+            // Update the airport weather to match the severe condition in the alert
+            this.meteoPorAeroporto[data.airportIata] = {
+                iata: data.airportIata,
+                airportName: data.airportName || 'Aeroporto',
+                temperatura: '18.0',
+                condicao: data.condition || 'Condição Severa',
+                ventoVelocidade: '35.0',
+                ventoDirecao: 'S',
+                umidade: 95,
+                pressao: '998'
+            };
         }
     },
     beforeUnmount() {
         // Clean up listeners
         window.removeEventListener('complete-flights', this.lidarComDadosVoo);
-        window.removeEventListener('meteo-raw', this.lidarComDadosMeteo);
+        window.removeEventListener('climate-alert', this.lidarComAlertaClimatico);
     }
 }
 </script>
