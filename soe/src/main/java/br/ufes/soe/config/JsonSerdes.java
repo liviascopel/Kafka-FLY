@@ -8,7 +8,9 @@ import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import br.ufes.soe.domain.flight.Flight;
 import br.ufes.soe.domain.ranking.AirlineMetrics;
 import br.ufes.soe.domain.weather.AirportWeather;
+import br.ufes.soe.domain.weather.ClimateExposureAlert;
 import br.ufes.soe.domain.weather.WeatherAlert;
+import br.ufes.soe.domain.weather.WeatherInterval;
 
 public class JsonSerdes {
 
@@ -36,6 +38,20 @@ public class JsonSerdes {
     public static Serde<AirlineMetrics> airlineMetrics() {
         JacksonJsonSerializer<AirlineMetrics> serializer = new JacksonJsonSerializer<>();
         JacksonJsonDeserializer<AirlineMetrics> deserializer = new JacksonJsonDeserializer<>(AirlineMetrics.class);
+        deserializer.setUseTypeHeaders(false);
+        return Serdes.serdeFrom(serializer, deserializer);
+    }
+
+    public static Serde<WeatherInterval> weatherInterval() {
+        JacksonJsonSerializer<WeatherInterval> serializer = new JacksonJsonSerializer<>();
+        JacksonJsonDeserializer<WeatherInterval> deserializer = new JacksonJsonDeserializer<>(WeatherInterval.class);
+        deserializer.setUseTypeHeaders(false);
+        return Serdes.serdeFrom(serializer, deserializer);
+    }
+
+    public static Serde<ClimateExposureAlert> climateExposureAlert() {
+        JacksonJsonSerializer<ClimateExposureAlert> serializer = new JacksonJsonSerializer<>();
+        JacksonJsonDeserializer<ClimateExposureAlert> deserializer = new JacksonJsonDeserializer<>(ClimateExposureAlert.class);
         deserializer.setUseTypeHeaders(false);
         return Serdes.serdeFrom(serializer, deserializer);
     }
