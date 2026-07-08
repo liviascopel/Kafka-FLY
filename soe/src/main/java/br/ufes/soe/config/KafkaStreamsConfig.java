@@ -30,6 +30,9 @@ public class KafkaStreamsConfig {
         // desativa o cache de buffer para os alertas serem gerados instantaneamente
         props.put(StreamsConfig.STATESTORE_CACHE_MAX_BYTES_CONFIG, 0);
 
+        // paraleliza o processamento em 3 threads, uma por partição dos tópicos de entrada
+        props.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, 3);
+
         return new KafkaStreamsConfiguration(props);
     }
 }
