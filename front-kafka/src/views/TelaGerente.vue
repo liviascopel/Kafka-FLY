@@ -236,30 +236,32 @@ export default {
                         </h4>
                         <p class="text-muted small mb-4 font-semibold">Desempenho calculado em tempo real via Kafka Streams.</p>
 
-                        <div v-if="rankingAirlines.length > 0" class="d-flex flex-column gap-3">
-                            <div 
-                                v-for="airline in rankingAirlines" 
-                                :key="airline.airlineName" 
-                                class="p-3 bg-light rounded-4 border d-flex flex-column gap-2 transition-all hover-shadow"
-                            >
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="badge bg-dark rounded-circle px-2 py-1" style="font-size: 0.8rem; min-width: 25px; text-align: center;">{{ airline.rank }}</span>
-                                        <span class="fw-bold text-dark">{{ airline.airlineName }}</span>
+                        <div v-if="rankingAirlines.length > 0" class="pe-2" style="max-height: 580px; overflow-y: auto;">
+                            <div class="d-flex flex-column gap-3">
+                                <div 
+                                    v-for="airline in rankingAirlines" 
+                                    :key="airline.airlineName" 
+                                    class="p-3 bg-light rounded-4 border d-flex flex-column gap-2 transition-all hover-shadow"
+                                >
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-dark rounded-circle px-2 py-1" style="font-size: 0.8rem; min-width: 25px; text-align: center;">{{ airline.rank }}</span>
+                                            <span class="fw-bold text-dark">{{ airline.airlineName }}</span>
+                                        </div>
+                                        <span class="badge bg-primary rounded-pill px-3 py-1.5">{{ airline.score.toFixed(1) }} pts</span>
                                     </div>
-                                    <span class="badge bg-primary rounded-pill px-3 py-1.5">{{ airline.score.toFixed(1) }} pts</span>
-                                </div>
-                                <div class="progress" style="height: 6px; border-radius: 3px;">
-                                    <div 
-                                        class="progress-bar bg-primary rounded-pill" 
-                                        role="progressbar" 
-                                        :style="{ width: airline.score + '%' }"
-                                    ></div>
-                                </div>
-                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
-                                    <span>Voos: <strong>{{ airline.totalFlights }}</strong></span>
-                                    <span>Atrasos: <strong class="text-danger">{{ airline.delayedFlights }}</strong></span>
-                                    <span>Cancelados: <strong class="text-danger">{{ airline.cancelledFlights }}</strong></span>
+                                    <div class="progress" style="height: 6px; border-radius: 3px;">
+                                        <div 
+                                            class="progress-bar bg-primary rounded-pill" 
+                                            role="progressbar" 
+                                            :style="{ width: airline.score + '%' }"
+                                        ></div>
+                                    </div>
+                                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
+                                        <span>Voos: <strong>{{ airline.totalFlights }}</strong></span>
+                                        <span>Atrasos: <strong class="text-danger">{{ airline.delayedFlights }}</strong></span>
+                                        <span>Cancelados: <strong class="text-danger">{{ airline.cancelledFlights }}</strong></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
