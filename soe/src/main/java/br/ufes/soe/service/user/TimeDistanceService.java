@@ -1,11 +1,17 @@
 package br.ufes.soe.service.user;
 
-import br.ufes.soe.domain.user.Usuario;
-import br.ufes.soe.repository.user.UsuarioRepository;
+import org.springframework.stereotype.Service;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import okhttp3.*;
-import org.springframework.stereotype.Service;
+
+import br.ufes.soe.domain.user.Usuario;
+import br.ufes.soe.repository.user.UsuarioRepository;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 @Service
 public class TimeDistanceService {
@@ -41,14 +47,14 @@ public class TimeDistanceService {
         }
 
         try {
-            String jsonBody = """
+            String jsonBody = String.format(java.util.Locale.US, """
                     {
                       "coordinates": [
                         [%f, %f],
                         [%f, %f]
                       ]
                     }
-                    """.formatted(
+                    """,
                     longitudeUsuario, latitudeUsuario,
                     longitudeAeroporto, latitudeAeroporto
             );

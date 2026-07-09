@@ -10,6 +10,7 @@ export default {
             meteoPorAeroporto: flightCache.meteoPorAeroporto, // Reference to global singleton cache
             rankingAirlines: flightCache.rankingAirlines, // Reference to global singleton cache
             alertaAproximacao: false,
+            alertaExposicaoClimaticaCorrente: null,
             logsEventos: flightCache.logsEventos // Reference to global singleton cache
         };
     },
@@ -26,15 +27,15 @@ export default {
             return this.meteoPorAeroporto[this.dadosVoo.destinoIata] || null;
         },
         alertaExposicaoClimatica() {
-            if (!this.dadosVoo) return null;
-            const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-            for (const key in flightCache.alertasExposicao) {
-                const normKey = key.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-                if (normKey === icao || icao.endsWith(normKey) || normKey.endsWith(icao)) {
-                    return flightCache.alertasExposicao[key];
-                }
-            }
-            return null;
+            return this.alertaExposicaoClimaticaCorrente;
+        }
+    },
+    watch: {
+        vooSelecionadoKey() {
+            this.alertaExposicaoClimaticaCorrente = null;
+            this.$nextTick(() => {
+                this.verificarAlertasArquivados();
+            });
         }
     },
     mounted() {
@@ -50,6 +51,9 @@ export default {
             this.vooSelecionadoKey = Object.keys(this.voosAtivos)[0];
             this.atualizarAlerta();
         }
+
+        // Check if there are already cached alerts for the selected flight on mount
+        this.verificarAlertasArquivados();
     },
     methods: {
         adicionarLog(topico, payload) {
@@ -198,10 +202,54 @@ export default {
         },
         lidarComAlertaExposicao(event) {
             const data = event.detail;
-            if (!data) return;
+            if (!data || !data.flightIcao) return;
 
             console.log('Gerente processando climate-exposure-alert:', data);
             this.adicionarLog('climate-exposure-alert', data);
+
+            // Check if it matches the selected flight
+            if (this.dadosVoo) {
+                const flightOrig = (this.dadosVoo.origemIata || '').toUpperCase().trim();
+                const flightDest = (this.dadosVoo.destinoIata || '').toUpperCase().trim();
+                const alertAirport = (data.airportIata || '').toUpperCase().trim();
+                
+                if (alertAirport === flightOrig || alertAirport === flightDest) {
+                    const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    const alertIcao = data.flightIcao.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    if (icao === alertIcao || icao.endsWith(alertIcao) || alertIcao.endsWith(icao)) {
+                        this.alertaExposicaoClimaticaCorrente = data;
+                        // Delete from cache since it was displayed
+                        const keyToDel = data.flightIcao.toUpperCase().trim();
+                        delete flightCache.alertasExposicao[keyToDel];
+                    }
+                }
+            }
+        },
+        verificarAlertasArquivados() {
+            if (!this.dadosVoo) return;
+            const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+            const flightOrig = (this.dadosVoo.origemIata || '').toUpperCase().trim();
+            const flightDest = (this.dadosVoo.destinoIata || '').toUpperCase().trim();
+            
+            // Check climate exposure alerts cache
+            let matchedClimateKey = null;
+            for (const key in flightCache.alertasExposicao) {
+                const data = flightCache.alertasExposicao[key];
+                const alertAirport = (data.airportIata || '').toUpperCase().trim();
+                if (alertAirport === flightOrig || alertAirport === flightDest) {
+                    const normKey = key.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    if (normKey === icao || icao.endsWith(normKey) || normKey.endsWith(icao)) {
+                        matchedClimateKey = key;
+                        break;
+                    }
+                }
+            }
+            if (matchedClimateKey) {
+                this.alertaExposicaoClimaticaCorrente = flightCache.alertasExposicao[matchedClimateKey];
+                delete flightCache.alertasExposicao[matchedClimateKey];
+            } else {
+                this.alertaExposicaoClimaticaCorrente = null;
+            }
         }
     },
     beforeUnmount() {
