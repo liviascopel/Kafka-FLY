@@ -687,9 +687,11 @@ export const startSimulation = () => {
             if (flightKeys.length > 0) {
                 const randomKey = flightKeys[Math.floor(Math.random() * flightKeys.length)];
                 const flight = flightCache.voosAtivos[randomKey];
+                
+                // Use the actual origin/destination of the selected flight
                 const isVix = Math.random() > 0.5;
-                const iata = isVix ? 'VIX' : 'GRU';
-                const airportName = isVix ? 'Eurico de Aguiar Salles (VIX)' : 'Guarulhos (GRU)';
+                const iata = isVix ? (flight.destinoIata || 'VIX') : (flight.origemIata || 'GRU');
+                const airportName = isVix ? (flight.destino || 'Vitória (VIX)') : (flight.origem || 'Guarulhos (GRU)');
                 
                 // Construct a simulated Allen relation alert
                 const alertData = {

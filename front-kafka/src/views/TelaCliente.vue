@@ -13,6 +13,7 @@ export default {
             mostrarPopupExposicao: false,
             mostrarPopupPickup: false,
             alertaPickupCorrente: null,
+            alertaExposicaoClimaticaCorrente: null,
             origemPadrao: 'São Paulo (GRU)',
             destinoPadrao: 'Vitória (VIX)'
         };
@@ -41,21 +42,18 @@ export default {
             return Math.max(0, Math.min(100, Math.round(progresso)));
         },
         alertaExposicaoClimatica() {
-            if (!this.dadosVoo) return null;
-            const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-            for (const key in flightCache.alertasExposicao) {
-                const normKey = key.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-                if (normKey === icao || icao.endsWith(normKey) || normKey.endsWith(icao)) {
-                    return flightCache.alertasExposicao[key];
-                }
-            }
-            return null;
+            return this.alertaExposicaoClimaticaCorrente;
         }
     },
     watch: {
         vooSelecionadoKey() {
             this.mostrarPopupExposicao = false;
             this.mostrarPopupPickup = false;
+            this.alertaExposicaoClimaticaCorrente = null;
+            this.alertaPickupCorrente = null;
+            this.$nextTick(() => {
+                this.verificarAlertasArquivados();
+            });
         }
     },
     mounted() {
@@ -73,6 +71,9 @@ export default {
             this.numeroVooBuscado = firstKey;
             this.atualizarAlerta();
         }
+
+        // Check if there are already cached alerts for the selected flight on mount
+        this.verificarAlertasArquivados();
     },
     methods: {
         buscarVoo() {
@@ -184,10 +185,20 @@ export default {
             
             // Check if it matches the selected flight
             if (this.dadosVoo) {
-                const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-                const alertIcao = data.flightIcao.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-                if (icao === alertIcao || icao.endsWith(alertIcao) || alertIcao.endsWith(icao)) {
-                    this.mostrarPopupExposicao = true;
+                const flightOrig = (this.dadosVoo.origemIata || '').toUpperCase().trim();
+                const flightDest = (this.dadosVoo.destinoIata || '').toUpperCase().trim();
+                const alertAirport = (data.airportIata || '').toUpperCase().trim();
+                
+                if (alertAirport === flightOrig || alertAirport === flightDest) {
+                    const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    const alertIcao = data.flightIcao.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    if (icao === alertIcao || icao.endsWith(alertIcao) || alertIcao.endsWith(icao)) {
+                        this.alertaExposicaoClimaticaCorrente = data;
+                        this.mostrarPopupExposicao = true;
+                        // Delete from cache since it was displayed
+                        const keyToDel = data.flightIcao.toUpperCase().trim();
+                        delete flightCache.alertasExposicao[keyToDel];
+                    }
                 }
             }
         },
@@ -199,12 +210,70 @@ export default {
 
             // Check if it matches the selected flight
             if (this.dadosVoo) {
-                const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-                const alertIcao = data.flightIcao.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-                if (icao === alertIcao || icao.endsWith(alertIcao) || alertIcao.endsWith(icao)) {
-                    this.alertaPickupCorrente = data;
-                    this.mostrarPopupPickup = true;
+                const flightDest = (this.dadosVoo.destinoIata || '').toUpperCase().trim();
+                const alertAirport = (data.arrivalAirportIata || '').toUpperCase().trim();
+                
+                if (alertAirport === flightDest) {
+                    const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    const alertIcao = data.flightIcao.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    if (icao === alertIcao || icao.endsWith(alertIcao) || alertIcao.endsWith(icao)) {
+                        this.alertaPickupCorrente = data;
+                        this.mostrarPopupPickup = true;
+                        // Delete from cache since it was displayed
+                        const keyToDel = data.flightIcao.toUpperCase().trim();
+                        delete flightCache.alertasPickup[keyToDel];
+                    }
                 }
+            }
+        },
+        verificarAlertasArquivados() {
+            if (!this.dadosVoo) return;
+            const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+            const flightOrig = (this.dadosVoo.origemIata || '').toUpperCase().trim();
+            const flightDest = (this.dadosVoo.destinoIata || '').toUpperCase().trim();
+            
+            // Check climate exposure alerts cache
+            let matchedClimateKey = null;
+            for (const key in flightCache.alertasExposicao) {
+                const data = flightCache.alertasExposicao[key];
+                const alertAirport = (data.airportIata || '').toUpperCase().trim();
+                if (alertAirport === flightOrig || alertAirport === flightDest) {
+                    const normKey = key.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    if (normKey === icao || icao.endsWith(normKey) || normKey.endsWith(icao)) {
+                        matchedClimateKey = key;
+                        break;
+                    }
+                }
+            }
+            if (matchedClimateKey) {
+                this.alertaExposicaoClimaticaCorrente = flightCache.alertasExposicao[matchedClimateKey];
+                this.mostrarPopupExposicao = true;
+                delete flightCache.alertasExposicao[matchedClimateKey];
+            } else {
+                this.mostrarPopupExposicao = false;
+            }
+
+            // Check pickup alerts cache
+            let matchedPickupKey = null;
+            let pickupAlert = null;
+            for (const key in flightCache.alertasPickup) {
+                const data = flightCache.alertasPickup[key];
+                const alertAirport = (data.arrivalAirportIata || '').toUpperCase().trim();
+                if (alertAirport === flightDest) {
+                    const normKey = key.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    if (normKey === icao || icao.endsWith(normKey) || normKey.endsWith(icao)) {
+                        matchedPickupKey = key;
+                        pickupAlert = flightCache.alertasPickup[key];
+                        break;
+                    }
+                }
+            }
+            if (pickupAlert) {
+                this.alertaPickupCorrente = pickupAlert;
+                this.mostrarPopupPickup = true;
+                delete flightCache.alertasPickup[matchedPickupKey];
+            } else {
+                this.mostrarPopupPickup = false;
             }
         }
     },
