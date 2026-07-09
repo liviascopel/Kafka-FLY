@@ -161,7 +161,7 @@ public class AllenIntervalDemoProducer {
             todayStr, "scheduled",
             isDeparture ? leg : null,
             isDeparture ? null : leg,
-            airline, flightInfo, null, null
+            airline, flightInfo, null, null, null
     );
 }
 

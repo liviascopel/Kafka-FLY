@@ -1,4 +1,4 @@
-package br.ufes.soe.dto;
+package br.ufes.soe.dto.user;
 
 public class CriaUsuarioRequest {
     private String nome;

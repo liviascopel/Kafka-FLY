@@ -1,4 +1,4 @@
-package br.ufes.soe.controller;
+package br.ufes.soe.controller.user;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.ufes.soe.dto.CriaUsuarioRequest;
-import br.ufes.soe.service.UsuarioService;
+import br.ufes.soe.dto.user.CriaUsuarioRequest;
+import br.ufes.soe.service.user.UsuarioService;
 
 @RestController
 @RequestMapping("/usuario")

@@ -1,6 +1,8 @@
 package br.ufes.soe.service.flight;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,8 +22,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import br.ufes.soe.domain.flight.AircraftData;
+import br.ufes.soe.domain.flight.AirlineData;
 import br.ufes.soe.domain.flight.AirportCoords;
+import br.ufes.soe.domain.flight.AirportData;
 import br.ufes.soe.domain.flight.Flight;
+import br.ufes.soe.domain.flight.FlightInfo;
+import br.ufes.soe.domain.flight.LiveTelemetry;
 import br.ufes.soe.domain.flight.OpenSkyState;
 import br.ufes.soe.domain.weather.AirportWeather;
 import okhttp3.OkHttpClient;
@@ -39,13 +46,15 @@ public class FlightProducer {
     private static final int TOPIC_PARTITIONS = 3;
     private static final short TOPIC_REPLICATION_FACTOR = 3;
     
-    private static final String AVIATIONSTACK_API_KEY = "b8d96df1de0307029731ab8e937e7232"; 
+    private static final String AVIATIONSTACK_API_KEY = "fcde5cfbffad361333fb8d6e6ad9f5dd"; 
     private static final String AVIATIONSTACK_FLIGHTS_URL = "http://api.aviationstack.com/v1/flights";
     private static final String AVIATIONSTACK_AIRPORTS_URL = "http://api.aviationstack.com/v1/airports";
     
     private static final String OPENSKY_STATES_URL = "https://opensky-network.org/api/states/all";
     
     private static final int POLLING_INTERVAL_MS = 30000; 
+
+    private static boolean demoFlightEnable = true;
 
     public static void main(String[] args) throws Exception {
         Properties kafkaProperties = new Properties();
@@ -114,6 +123,13 @@ public class FlightProducer {
                                         // pega os dados de telemetria e status da opensky e adiciona no objeto
                                         String resolvedStatus = flightLiveState.flightStatus(rawFlight.flight_status());
 
+                                        //Busca as coordenadas do aeroporto de ARRIVAL (Destino) usando o IATA do voo atual
+                                        AirportCoords destinationCoords = null;
+                                        if (rawFlight.arrival() != null && rawFlight.arrival().iata() != null) {
+                                            String arrivalIataKey = rawFlight.arrival().iata().toUpperCase().trim();
+                                            destinationCoords = airportCoordinatesCache.get(arrivalIataKey);
+                                        }
+
                                         Flight completeFlight = new Flight(
                                                     rawFlight.flight_date(),
                                                     resolvedStatus, 
@@ -122,7 +138,8 @@ public class FlightProducer {
                                                     rawFlight.airline(),
                                                     rawFlight.flight(),
                                                     rawFlight.aircraft(),
-                                                    flightLiveState.toLiveTelemetry() 
+                                                    flightLiveState.toLiveTelemetry(), 
+                                                    destinationCoords
                                         );
 
                                         // adiciona os aeroportos à lista de ativos nessa rodada
@@ -147,6 +164,12 @@ public class FlightProducer {
 
                                         ProducerRecord<String, Flight> rankingRecord = new ProducerRecord<>(AVIATIONSTACK_FLIGHT_TOPIC, flightIcaoKey, completeFlight);
                                         flightKafkaProducer.send(rankingRecord);
+
+                                        
+                                        if (demoFlightEnable) { //ENVIA O MOCK DE VOO
+                                            sendDemoFlight(flightKafkaProducer);
+                                            demoFlightEnable = false;
+                                        }
                                     }
                                 } catch (Exception e) {
                                     System.err.println("erro: erro ao processar voo: " + e.getMessage());
@@ -314,4 +337,49 @@ public class FlightProducer {
         }
         return null;
     }
+
+    private static void sendDemoFlight(KafkaProducer<String, Flight> producer){
+        AirportData gru = new AirportData("São Paulo/Guarulhos",
+            "America/Sao_Paulo", "GRU", "SBGR",
+            "3", "G205", 0,
+            Instant.parse("2026-07-08T21:00:00Z"),
+            Instant.parse("2026-07-08T21:05:00Z"),
+            null, "12"
+        );        
+        AirportData vix = new AirportData("Eurico de Aguiar Salles",
+            "America/Sao_Paulo", "VIX", "SBVT",
+            "1", "G05", 0,
+            Instant.parse("2026-07-09T02:00:00Z"),
+            Instant.parse("2026-07-09T02:05:00Z"),
+            null, "2"
+        );
+        
+        AirlineData airData = new AirlineData("Thais", "THA", "THA123");
+        FlightInfo fliInfo = new FlightInfo("Livia", "LIV", "LIV456");
+        AircraftData craftData = new AircraftData("123456", "YURI", "YU7878", "YURI9");
+        LiveTelemetry telemetry = new LiveTelemetry(Instant.now(), -20.45, -40.55, 3200.0, 95.0, -6.5, 6000.0, false);
+        AirportCoords airportCoords = new AirportCoords(
+            "Eurico de Aguiar Salles Airport",
+            "VIX",
+            "Brazil",
+            -20.2581,
+            -40.2864
+        );
+
+
+        Flight fakeFlight = new Flight(LocalDate.now().toString(), "active", 
+                gru, vix, airData, fliInfo, craftData, telemetry, airportCoords);
+
+            
+            producer.send(
+                new ProducerRecord<>(
+                    COMPLETE_FLIGHT_TOPIC,
+                    "LIV456",
+                    fakeFlight
+                )
+            );
+            
+            producer.flush();
+    }
+
 }

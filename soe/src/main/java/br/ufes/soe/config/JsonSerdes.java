@@ -6,6 +6,8 @@ import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 import br.ufes.soe.domain.flight.Flight;
+import br.ufes.soe.domain.pickup.PickupAlert;
+import br.ufes.soe.domain.pickup.PickupRequest;
 import br.ufes.soe.domain.ranking.AirlineMetrics;
 import br.ufes.soe.domain.weather.AirportWeather;
 import br.ufes.soe.domain.weather.ClimateExposureAlert;
@@ -52,6 +54,20 @@ public class JsonSerdes {
     public static Serde<ClimateExposureAlert> climateExposureAlert() {
         JacksonJsonSerializer<ClimateExposureAlert> serializer = new JacksonJsonSerializer<>();
         JacksonJsonDeserializer<ClimateExposureAlert> deserializer = new JacksonJsonDeserializer<>(ClimateExposureAlert.class);
+        deserializer.setUseTypeHeaders(false);
+        return Serdes.serdeFrom(serializer, deserializer);
+    }
+
+    public static Serde<PickupRequest> pickupRequest() {
+        JacksonJsonSerializer<PickupRequest> serializer = new JacksonJsonSerializer<>();
+        JacksonJsonDeserializer<PickupRequest> deserializer = new JacksonJsonDeserializer<>(PickupRequest.class);
+        deserializer.setUseTypeHeaders(false);
+        return Serdes.serdeFrom(serializer, deserializer);
+    }
+
+    public static Serde<PickupAlert> pickupAlert() {
+        JacksonJsonSerializer<PickupAlert> serializer = new JacksonJsonSerializer<>();
+        JacksonJsonDeserializer<PickupAlert> deserializer = new JacksonJsonDeserializer<>(PickupAlert.class);
         deserializer.setUseTypeHeaders(false);
         return Serdes.serdeFrom(serializer, deserializer);
     }

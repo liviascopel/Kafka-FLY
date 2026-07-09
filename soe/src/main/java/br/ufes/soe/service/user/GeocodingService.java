@@ -1,4 +1,4 @@
-package br.ufes.soe.service;
+package br.ufes.soe.service.user;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.springframework.stereotype.Service;
 
-import br.ufes.soe.domain.Coordenadas;
+import br.ufes.soe.domain.user.Coordenadas;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 

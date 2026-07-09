@@ -50,6 +50,22 @@ public class KafkaStreamsConfig {
                 .build();
     }
 
+    @Bean
+    public NewTopic pickupRequestsTopic() {
+        return TopicBuilder.name("pickup-requests")
+                .partitions(3)
+                .replicas(3)
+                .build();
+    }
+
+    @Bean
+    public NewTopic pickupAlertsTopic() {
+        return TopicBuilder.name("pickup-alerts")
+                .partitions(3)
+                .replicas(3)
+                .build();
+    }
+
     @Bean(name = KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME)
     public KafkaStreamsConfiguration kStreamsConfig() {
         Map<String, Object> props = new HashMap<>();

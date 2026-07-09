@@ -1,14 +1,14 @@
-package br.ufes.soe.service;
+package br.ufes.soe.service.user;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import br.ufes.soe.domain.Coordenadas;
-import br.ufes.soe.domain.Endereco;
-import br.ufes.soe.domain.Usuario;
-import br.ufes.soe.dto.CriaUsuarioRequest;
-import br.ufes.soe.repository.UsuarioRepository;
+import br.ufes.soe.domain.user.Coordenadas;
+import br.ufes.soe.domain.user.Endereco;
+import br.ufes.soe.domain.user.Usuario;
+import br.ufes.soe.dto.user.CriaUsuarioRequest;
+import br.ufes.soe.repository.user.UsuarioRepository;
 
 @Service
 public class UsuarioService {

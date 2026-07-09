@@ -10,5 +10,6 @@ public record Flight(
     AirlineData airline,
     FlightInfo flight,
     AircraftData aircraft,
-    LiveTelemetry live
+    LiveTelemetry live,
+    AirportCoords coords
 ) implements Serializable {}

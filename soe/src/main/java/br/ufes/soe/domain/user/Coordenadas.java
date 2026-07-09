@@ -1,4 +1,4 @@
-package br.ufes.soe.domain;
+package br.ufes.soe.domain.user;
 
 public class Coordenadas {
     private Double latitude;
