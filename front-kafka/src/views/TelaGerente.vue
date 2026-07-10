@@ -10,6 +10,7 @@ export default {
             meteoPorAeroporto: flightCache.meteoPorAeroporto, // Reference to global singleton cache
             rankingAirlines: flightCache.rankingAirlines, // Reference to global singleton cache
             alertaAproximacao: false,
+            alertaExposicaoClimaticaCorrente: null,
             logsEventos: flightCache.logsEventos // Reference to global singleton cache
         };
     },
@@ -26,15 +27,15 @@ export default {
             return this.meteoPorAeroporto[this.dadosVoo.destinoIata] || null;
         },
         alertaExposicaoClimatica() {
-            if (!this.dadosVoo) return null;
-            const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-            for (const key in flightCache.alertasExposicao) {
-                const normKey = key.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
-                if (normKey === icao || icao.endsWith(normKey) || normKey.endsWith(icao)) {
-                    return flightCache.alertasExposicao[key];
-                }
-            }
-            return null;
+            return this.alertaExposicaoClimaticaCorrente;
+        }
+    },
+    watch: {
+        vooSelecionadoKey() {
+            this.alertaExposicaoClimaticaCorrente = null;
+            this.$nextTick(() => {
+                this.verificarAlertasArquivados();
+            });
         }
     },
     mounted() {
@@ -50,6 +51,9 @@ export default {
             this.vooSelecionadoKey = Object.keys(this.voosAtivos)[0];
             this.atualizarAlerta();
         }
+
+        // Check if there are already cached alerts for the selected flight on mount
+        this.verificarAlertasArquivados();
     },
     methods: {
         adicionarLog(topico, payload) {
@@ -198,10 +202,54 @@ export default {
         },
         lidarComAlertaExposicao(event) {
             const data = event.detail;
-            if (!data) return;
+            if (!data || !data.flightIcao) return;
 
             console.log('Gerente processando climate-exposure-alert:', data);
             this.adicionarLog('climate-exposure-alert', data);
+
+            // Check if it matches the selected flight
+            if (this.dadosVoo) {
+                const flightOrig = (this.dadosVoo.origemIata || '').toUpperCase().trim();
+                const flightDest = (this.dadosVoo.destinoIata || '').toUpperCase().trim();
+                const alertAirport = (data.airportIata || '').toUpperCase().trim();
+                
+                if (alertAirport === flightOrig || alertAirport === flightDest) {
+                    const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    const alertIcao = data.flightIcao.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    if (icao === alertIcao || icao.endsWith(alertIcao) || alertIcao.endsWith(icao)) {
+                        this.alertaExposicaoClimaticaCorrente = data;
+                        // Delete from cache since it was displayed
+                        const keyToDel = data.flightIcao.toUpperCase().trim();
+                        delete flightCache.alertasExposicao[keyToDel];
+                    }
+                }
+            }
+        },
+        verificarAlertasArquivados() {
+            if (!this.dadosVoo) return;
+            const icao = (this.dadosVoo.raw?.flight?.icao || this.dadosVoo.voo || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+            const flightOrig = (this.dadosVoo.origemIata || '').toUpperCase().trim();
+            const flightDest = (this.dadosVoo.destinoIata || '').toUpperCase().trim();
+            
+            // Check climate exposure alerts cache
+            let matchedClimateKey = null;
+            for (const key in flightCache.alertasExposicao) {
+                const data = flightCache.alertasExposicao[key];
+                const alertAirport = (data.airportIata || '').toUpperCase().trim();
+                if (alertAirport === flightOrig || alertAirport === flightDest) {
+                    const normKey = key.toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+                    if (normKey === icao || icao.endsWith(normKey) || normKey.endsWith(icao)) {
+                        matchedClimateKey = key;
+                        break;
+                    }
+                }
+            }
+            if (matchedClimateKey) {
+                this.alertaExposicaoClimaticaCorrente = flightCache.alertasExposicao[matchedClimateKey];
+                delete flightCache.alertasExposicao[matchedClimateKey];
+            } else {
+                this.alertaExposicaoClimaticaCorrente = null;
+            }
         }
     },
     beforeUnmount() {
@@ -236,30 +284,32 @@ export default {
                         </h4>
                         <p class="text-muted small mb-4 font-semibold">Desempenho calculado em tempo real via Kafka Streams.</p>
 
-                        <div v-if="rankingAirlines.length > 0" class="d-flex flex-column gap-3">
-                            <div 
-                                v-for="airline in rankingAirlines" 
-                                :key="airline.airlineName" 
-                                class="p-3 bg-light rounded-4 border d-flex flex-column gap-2 transition-all hover-shadow"
-                            >
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="badge bg-dark rounded-circle px-2 py-1" style="font-size: 0.8rem; min-width: 25px; text-align: center;">{{ airline.rank }}</span>
-                                        <span class="fw-bold text-dark">{{ airline.airlineName }}</span>
+                        <div v-if="rankingAirlines.length > 0" class="pe-2" style="max-height: 580px; overflow-y: auto;">
+                            <div class="d-flex flex-column gap-3">
+                                <div 
+                                    v-for="airline in rankingAirlines" 
+                                    :key="airline.airlineName" 
+                                    class="p-3 bg-light rounded-4 border d-flex flex-column gap-2 transition-all hover-shadow"
+                                >
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-dark rounded-circle px-2 py-1" style="font-size: 0.8rem; min-width: 25px; text-align: center;">{{ airline.rank }}</span>
+                                            <span class="fw-bold text-dark">{{ airline.airlineName }}</span>
+                                        </div>
+                                        <span class="badge bg-primary rounded-pill px-3 py-1.5">{{ airline.score.toFixed(1) }} pts</span>
                                     </div>
-                                    <span class="badge bg-primary rounded-pill px-3 py-1.5">{{ airline.score.toFixed(1) }} pts</span>
-                                </div>
-                                <div class="progress" style="height: 6px; border-radius: 3px;">
-                                    <div 
-                                        class="progress-bar bg-primary rounded-pill" 
-                                        role="progressbar" 
-                                        :style="{ width: airline.score + '%' }"
-                                    ></div>
-                                </div>
-                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
-                                    <span>Voos: <strong>{{ airline.totalFlights }}</strong></span>
-                                    <span>Atrasos: <strong class="text-danger">{{ airline.delayedFlights }}</strong></span>
-                                    <span>Cancelados: <strong class="text-danger">{{ airline.cancelledFlights }}</strong></span>
+                                    <div class="progress" style="height: 6px; border-radius: 3px;">
+                                        <div 
+                                            class="progress-bar bg-primary rounded-pill" 
+                                            role="progressbar" 
+                                            :style="{ width: airline.score + '%' }"
+                                        ></div>
+                                    </div>
+                                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
+                                        <span>Voos: <strong>{{ airline.totalFlights }}</strong></span>
+                                        <span>Atrasos: <strong class="text-danger">{{ airline.delayedFlights }}</strong></span>
+                                        <span>Cancelados: <strong class="text-danger">{{ airline.cancelledFlights }}</strong></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -46,7 +46,7 @@ public class FlightProducer {
     private static final int TOPIC_PARTITIONS = 3;
     private static final short TOPIC_REPLICATION_FACTOR = 3;
     
-    private static final String AVIATIONSTACK_API_KEY = "fcde5cfbffad361333fb8d6e6ad9f5dd"; 
+    private static final String AVIATIONSTACK_API_KEY = "c6691ffecdb270df38e3902ce5a964d9"; 
     private static final String AVIATIONSTACK_FLIGHTS_URL = "http://api.aviationstack.com/v1/flights";
     private static final String AVIATIONSTACK_AIRPORTS_URL = "http://api.aviationstack.com/v1/airports";
     
