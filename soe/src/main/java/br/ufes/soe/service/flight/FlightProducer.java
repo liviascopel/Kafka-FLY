@@ -352,15 +352,15 @@ public class FlightProducer {
         AirportData gru = new AirportData("São Paulo/Guarulhos",
             "America/Sao_Paulo", "GRU", "SBGR",
             "3", "G205", 0,
-            Instant.parse("2026-07-08T21:00:00Z"),
-            Instant.parse("2026-07-08T21:05:00Z"),
+            Instant.parse("2026-07-10T08:00:00Z"),
+            Instant.parse("2026-07-10T08:05:00Z"),
             null, "12"
         );        
         AirportData vix = new AirportData("Eurico de Aguiar Salles",
             "America/Sao_Paulo", "VIX", "SBVT",
             "1", "G05", 0,
-            Instant.parse("2026-07-09T02:00:00Z"),
-            Instant.parse("2026-07-09T02:05:00Z"),
+            Instant.parse("2026-07-10T14:00:00Z"),
+            Instant.parse("2026-07-10T14:05:00Z"),
             null, "2"
         );
         
