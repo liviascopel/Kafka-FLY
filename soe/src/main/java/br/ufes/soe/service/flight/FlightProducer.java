@@ -82,12 +82,22 @@ public class FlightProducer {
             ensureTopic(weatherProps, METEO_RAW_TOPIC);
             ensureTopic(kafkaProperties, AIRLINE_RANKING_TOPIC);
 
+            if (demoFlightEnable) { //ENVIA O MOCK DE VOO
+                                            sendDemoFlight(flightKafkaProducer);
+                                            demoFlightEnable = false;
+                                        }
+
             while (true) {
                 System.out.println("log: buscando dados de voos");
                 long roundStartTime = System.currentTimeMillis();
                 
                 // vamos buscar pela meteorologia apenas dos aeroportos com voos ativos na api
                 java.util.Set<String> activeAirportsInThisRound = new java.util.HashSet<>();
+
+                // if (demoFlightEnable) { //ENVIA O MOCK DE VOO
+                //                             sendDemoFlight(flightKafkaProducer);
+                //                             demoFlightEnable = false;
+                //                         }
 
                 try {
                     Map<String, OpenSkyState> openSkyState = fetchOpenSkyState(httpClient, jsonMapper);
@@ -166,10 +176,10 @@ public class FlightProducer {
                                         flightKafkaProducer.send(rankingRecord);
 
                                         
-                                        if (demoFlightEnable) { //ENVIA O MOCK DE VOO
-                                            sendDemoFlight(flightKafkaProducer);
-                                            demoFlightEnable = false;
-                                        }
+                                        // if (demoFlightEnable) { //ENVIA O MOCK DE VOO
+                                        //     sendDemoFlight(flightKafkaProducer);
+                                        //     demoFlightEnable = false;
+                                        // }
                                     }
                                 } catch (Exception e) {
                                     System.err.println("erro: erro ao processar voo: " + e.getMessage());
