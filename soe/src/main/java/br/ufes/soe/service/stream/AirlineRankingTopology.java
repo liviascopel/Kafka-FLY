@@ -46,27 +46,31 @@ public class AirlineRankingTopology {
                 
                 // computa o score
                 .aggregate(
-                        // inicializador da janela
-                        () -> AirlineMetrics.empty(""),
+                    // Inicializador da janela
+                    () -> AirlineMetrics.empty(""),
+                    
+                    // Agregador corrigido
+                    (airlineName, flight, currentMetrics) -> {
+                        String name = currentMetrics.airlineName().isEmpty() ? airlineName : currentMetrics.airlineName();
                         
-                        // agregador
-                        (airlineName, flight, currentMetrics) -> {
-                            String name = currentMetrics.airlineName().isEmpty() ? airlineName : currentMetrics.airlineName();
-                            
-                            // atraso em minutos se houver
-                            int delay = (flight.departure() != null) ? flight.departure().delay() : 0;
-                            
-                            // reaproveita o record para calcular o novo score internamente
-                            return new AirlineMetrics(
-                                name, 
-                                currentMetrics.totalFlights(), 
-                                currentMetrics.delayedFlights(), 
-                                currentMetrics.cancelledFlights(), 
-                                currentMetrics.score()
-                            ).increment(flight.flight_status(), delay);
-                        },
+                        // Altere para long se as métricas da sua classe forem long
+                        long novoTotal = currentMetrics.totalFlights() + 1; 
                         
-                        Materialized.with(Serdes.String(), JsonSerdes.airlineMetrics())
+                        // Faça o cast para int se o delay original vier como long do modelo
+                        int delay = (flight.departure() != null) ? (int) flight.departure().delay() : 0;
+                        
+                        long novosAtrasados = currentMetrics.delayedFlights() + ((delay > 15) ? 1 : 0);
+                        
+                        boolean isCancelado = "cancelled".equalsIgnoreCase(flight.flight_status());
+                        long novosCancelados = currentMetrics.cancelledFlights() + (isCancelado ? 1 : 0);
+                        
+                        double penalidades = (novosAtrasados * 0.5) + (novosCancelados * 1.0);
+                        double novoScore = Math.max(0.0, 100.0 - (penalidades / novoTotal) * 100.0);
+                        
+                        return new AirlineMetrics(name, novoTotal, novosAtrasados, novosCancelados, novoScore);
+                    },
+                    
+                    Materialized.with(Serdes.String(), JsonSerdes.airlineMetrics())
                 );
 
         // envia o resultado da tabela para o tópico de saída
